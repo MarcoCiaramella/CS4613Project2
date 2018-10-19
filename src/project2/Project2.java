@@ -11,6 +11,7 @@ import com.jogamp.opengl.util.texture.Texture;
 import com.jogamp.opengl.util.texture.TextureIO;
 import graphicslib3D.GLSLUtils;
 import graphicslib3D.Matrix3D;
+import graphicslib3D.MatrixStack;
 import graphicslib3D.Vertex3D;
 import graphicslib3D.shape.Sphere;
 
@@ -44,6 +45,7 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 	private int m_renderingProgram;
 	private int m_vao[];
 	private int m_vbo[];
+	private MatrixStack m_mvStack;
 	private float m_cameraX, m_cameraY, m_cameraZ;
 	private float m_cubeLocX, m_cubeLocY, m_cubeLocZ;
 	private float m_pyrLocX, m_pyrLocY, m_pyrLocZ;
@@ -63,6 +65,7 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		// Initialize default member variable values.
 		m_vao = new int[1];
 		m_vbo = new int[6];
+		m_mvStack = new MatrixStack(20);
 		m_sun = new Sphere(24);
 		m_earth = new Sphere(24);
 		m_startTime = System.currentTimeMillis();
@@ -93,14 +96,91 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		float aspect = (float) m_myCanvas.getWidth() / (float) m_myCanvas.getHeight();
 		Matrix3D pMat = perspective(60.0f, aspect, 0.1f, 1000.0f);
 		
-		Matrix3D vMat = new Matrix3D();
-		vMat.translate(-m_cameraX, -m_cameraY, -m_cameraZ);
+		// Set up view matrix.
+		m_mvStack.pushMatrix();
+		m_mvStack.translate(-m_cameraX, -m_cameraY, -m_cameraZ);
+		double amt = (double) (System.currentTimeMillis()) / 1000.0;
+		
+		// Pass the projection matrix to a uniform in the shader.
+		gl.glUniformMatrix4fv(projLoc, 1, false, pMat.getFloatValues(), 0);
+		
+		/*Matrix3D vMat = new Matrix3D();
+		vMat.translate(-m_cameraX, -m_cameraY, -m_cameraZ);*/
 		
 		/* *** *
 		 * Sun *
 		 * *** */
 		
-		// Apply transformations to the model matrix.
+		// Apply transformations to the model-view matrix.
+		m_mvStack.pushMatrix();
+		m_mvStack.translate(m_sunLocX, m_sunLocY, m_sunLocZ);
+		m_mvStack.pushMatrix();
+		m_mvStack.rotate(((double) (System.currentTimeMillis() - m_startTime) / 100) % 360, 0.0, 1.0, 0.0);
+		
+		// Pass the model-view matrix to a uniform in the shader.
+		gl.glUniformMatrix4fv(mvLoc, 1, false, m_mvStack.peek().getFloatValues(), 0);
+		
+		// Bind the vertex buffer to a vertex attribute.
+		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[0]);
+		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(0);
+		
+		// Bind the texture buffer to a vertex attribute.
+		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[1]);
+		gl.glVertexAttribPointer(1, 2, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(1);
+		
+		gl.glActiveTexture(GL_TEXTURE0);
+		gl.glBindTexture(GL_TEXTURE_2D, sunTexture);
+		
+		gl.glEnable(GL_CULL_FACE);
+		gl.glFrontFace(GL_CCW);
+		
+		// Draw the object.
+		int numVerts = m_sun.getIndices().length;
+		gl.glDrawArrays(GL_TRIANGLES, 0, numVerts);
+		m_mvStack.popMatrix();
+		
+		/* ***** *
+		 * Earth *
+		 * ***** */
+		
+		// Apply transformations to the model-view matrix.
+		m_mvStack.pushMatrix();
+		m_mvStack.translate(m_earthLocX, m_earthLocY, m_earthLocZ);
+		m_mvStack.pushMatrix();
+		m_mvStack.rotate(((double) (System.currentTimeMillis() - m_startTime) / 50) % 360, 0.0, 1.0, 0.0);
+		
+		// Pass the model-view matrix to a uniform in the shader.
+		gl.glUniformMatrix4fv(mvLoc, 1, false, m_mvStack.peek().getFloatValues(), 0);
+		
+		// Bind the vertex buffer to a vertex attribute.
+		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[3]);
+		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(0);
+		
+		// Bind the texture buffer to a vertex attribute.
+		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[4]);
+		gl.glVertexAttribPointer(1, 2, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(1);
+		
+		gl.glActiveTexture(GL_TEXTURE0);
+		gl.glBindTexture(GL_TEXTURE_2D, earthTexture);
+		
+		gl.glEnable(GL_CULL_FACE);
+		gl.glFrontFace(GL_CCW);
+		
+		// Draw the object.
+		numVerts = m_earth.getIndices().length;
+		gl.glDrawArrays(GL_TRIANGLES, 0, numVerts);
+		m_mvStack.popMatrix();
+		
+		m_mvStack.popMatrix();
+		m_mvStack.popMatrix();
+		m_mvStack.popMatrix();
+		
+		
+		/*// Apply transformations to the model matrix.
 		Matrix3D mMat = new Matrix3D();
 		mMat.translate(m_sunLocX, m_sunLocY, m_sunLocZ);
 		mMat.rotate(0, ((double) (System.currentTimeMillis() - m_startTime) / 100) % 360, 0);
@@ -131,12 +211,12 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		gl.glFrontFace(GL_CCW);
 		
 		// Draw the object.
-		int numVerts = m_sun.getIndices().length;
+		numVerts = m_sun.getIndices().length;
 		gl.glDrawArrays(GL_TRIANGLES, 0, numVerts);
 		
-		/* ***** *
+		*//* ***** *
 		 * Earth *
-		 * ***** */
+	 * ***** *//*
 		
 		// Apply transformations to the model matrix.
 		mMat = new Matrix3D();
@@ -170,7 +250,7 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		
 		// Draw the object.
 		numVerts = m_earth.getIndices().length;
-		gl.glDrawArrays(GL_TRIANGLES, 0, numVerts);
+		gl.glDrawArrays(GL_TRIANGLES, 0, numVerts);*/
 		
 		/*// ------------------- draw the cube using buffer #0
 		Matrix3D mMat = new Matrix3D();
