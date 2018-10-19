@@ -47,10 +47,12 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 	private float m_cameraX, m_cameraY, m_cameraZ;
 	private float m_cubeLocX, m_cubeLocY, m_cubeLocZ;
 	private float m_pyrLocX, m_pyrLocY, m_pyrLocZ;
-	private float m_sphLocX, m_sphLocY, m_sphLocZ;
+	private float m_sunLocX, m_sunLocY, m_sunLocZ;
+	private float m_earthLocX, m_earthLocY, m_earthLocZ;
 	private FPSAnimator m_animator;
 	private long m_startTime;
 	private Sphere m_sun;
+	private Sphere m_earth;
 	private int earthTexture;
 	private int sunTexture;
 	private Texture joglEarthTexture;
@@ -60,8 +62,9 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 	{
 		// Initialize default member variable values.
 		m_vao = new int[1];
-		m_vbo = new int[3];
+		m_vbo = new int[6];
 		m_sun = new Sphere(24);
+		m_earth = new Sphere(24);
 		m_startTime = System.currentTimeMillis();
 		
 		// Set up JFrame properties.
@@ -93,21 +96,30 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		Matrix3D vMat = new Matrix3D();
 		vMat.translate(-m_cameraX, -m_cameraY, -m_cameraZ);
 		
+		/* *** *
+		 * Sun *
+		 * *** */
+		
+		// Apply transformations to the model matrix.
 		Matrix3D mMat = new Matrix3D();
-		mMat.translate(m_sphLocX, m_sphLocY, m_sphLocZ);
+		mMat.translate(m_sunLocX, m_sunLocY, m_sunLocZ);
 		mMat.rotate(0, ((double) (System.currentTimeMillis() - m_startTime) / 100) % 360, 0);
 		
+		// Construct model-view matrix.
 		Matrix3D mvMat = new Matrix3D();
 		mvMat.concatenate(vMat);
 		mvMat.concatenate(mMat);
 		
+		// Pass the model-view and projection matrices to uniforms in the shader.
 		gl.glUniformMatrix4fv(mvLoc, 1, false, mvMat.getFloatValues(), 0);
 		gl.glUniformMatrix4fv(projLoc, 1, false, pMat.getFloatValues(), 0);
 		
+		// Bind the vertex buffer to a vertex attribute.
 		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[0]);
 		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
 		gl.glEnableVertexAttribArray(0);
 		
+		// Bind the texture buffer to a vertex attribute.
 		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[1]);
 		gl.glVertexAttribPointer(1, 2, GL_FLOAT, false, 0, 0);
 		gl.glEnableVertexAttribArray(1);
@@ -118,7 +130,46 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		gl.glEnable(GL_CULL_FACE);
 		gl.glFrontFace(GL_CCW);
 		
+		// Draw the object.
 		int numVerts = m_sun.getIndices().length;
+		gl.glDrawArrays(GL_TRIANGLES, 0, numVerts);
+		
+		/* ***** *
+		 * Earth *
+		 * ***** */
+		
+		// Apply transformations to the model matrix.
+		mMat = new Matrix3D();
+		mMat.translate(m_earthLocX, m_earthLocY, m_earthLocZ);
+		mMat.rotate(0, ((double) (System.currentTimeMillis() - m_startTime) / 50) % 360, 0);
+		
+		// Construct model-view matrix.
+		mvMat = new Matrix3D();
+		mvMat.concatenate(vMat);
+		mvMat.concatenate(mMat);
+		
+		// Pass the model-view and projection matrices to uniforms in the shader.
+		gl.glUniformMatrix4fv(mvLoc, 1, false, mvMat.getFloatValues(), 0);
+		gl.glUniformMatrix4fv(projLoc, 1, false, pMat.getFloatValues(), 0);
+		
+		// Bind the vertex buffer to a vertex attribute.
+		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[3]);
+		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(0);
+		
+		// Bind the texture buffer to a vertex attribute.
+		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[4]);
+		gl.glVertexAttribPointer(1, 2, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(1);
+		
+		gl.glActiveTexture(GL_TEXTURE0);
+		gl.glBindTexture(GL_TEXTURE_2D, earthTexture);
+		
+		gl.glEnable(GL_CULL_FACE);
+		gl.glFrontFace(GL_CCW);
+		
+		// Draw the object.
+		numVerts = m_earth.getIndices().length;
 		gl.glDrawArrays(GL_TRIANGLES, 0, numVerts);
 		
 		/*// ------------------- draw the cube using buffer #0
@@ -167,50 +218,130 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		GL4 gl = (GL4) GLContext.getCurrentGL();
 		m_renderingProgram = createShaderProgram();
 		setupVertices();
+		
+		// Camera Position
 		m_cameraX = 0.0f;
-		m_cameraY = 0.0f;
-		m_cameraZ = 10.0f;
+		m_cameraY = 0.5f;
+		m_cameraZ = 12.0f;
+		
 		m_cubeLocX = 0.0f;
 		m_cubeLocY = -2.0f;
 		m_cubeLocZ = 0.0f;
 		m_pyrLocX = 2.0f;
 		m_pyrLocY = 2.0f;
 		m_pyrLocZ = 0.0f;
-		m_sphLocX = 0.0f;
-		m_sphLocY = 0.0f;
-		m_sphLocZ = 0.0f;
 		
-		joglEarthTexture = loadTexture(EARTH_TEXTURE_FILE);
-		earthTexture = joglEarthTexture.getTextureObject();
+		// Sun Position
+		m_sunLocX = 0.0f;
+		m_sunLocY = 0.0f;
+		m_sunLocZ = 0.0f;
 		
+		// Earth Position
+		m_earthLocX = 5.0f;
+		m_earthLocY = 0.0f;
+		m_earthLocZ = 0.0f;
+		
+		// Sun Texture
 		joglSunTexture = loadTexture(SUN_TEXTURE_FILE);
 		sunTexture = joglSunTexture.getTextureObject();
+		
+		// Earth Texture
+		joglEarthTexture = loadTexture(EARTH_TEXTURE_FILE);
+		earthTexture = joglEarthTexture.getTextureObject();
 	}
 	
 	private void setupVertices()
 	{
 		GL4 gl = (GL4) GLContext.getCurrentGL();
 		
-		Vertex3D[] vertices = m_sun.getVertices();
-		int[] indices = m_sun.getIndices();
+		// Set up vertex array.
+		gl.glGenVertexArrays(m_vao.length, m_vao, 0);
+		gl.glBindVertexArray(m_vao[0]);
+		gl.glGenBuffers(m_vbo.length, m_vbo, 0);
 		
-		float[] pValues = new float[indices.length * 3];
-		float[] tValues = new float[indices.length * 2];
-		float[] nValues = new float[indices.length * 3];
+		/* *** *
+		 * Sun *
+		 * *** */
 		
-		for(int i = 0; i < indices.length; i++)
+		// Get sun vertices and indices.
+		Vertex3D[] sunVertices = m_sun.getVertices();
+		int[] sunIndices = m_sun.getIndices();
+		
+		// Create vertex, texture, and normal buffers.
+		float[] pSunValues = new float[sunIndices.length * 3];
+		float[] tSunValues = new float[sunIndices.length * 2];
+		float[] nSunValues = new float[sunIndices.length * 3];
+		
+		// Populate the buffers with the proper values.
+		for(int i = 0; i < sunIndices.length; i++)
 		{
-			pValues[i * 3] = (float) (vertices[indices[i]]).getX();
-			pValues[i * 3 + 1] = (float) (vertices[indices[i]]).getY();
-			pValues[i * 3 + 2] = (float) (vertices[indices[i]]).getZ();
-			tValues[i * 2] = (float) (vertices[indices[i]]).getS();
-			tValues[i * 2 + 1] = (float) (vertices[indices[i]]).getT();
-			nValues[i * 3] = (float) (vertices[indices[i]]).getNormalX();
-			nValues[i * 3 + 1] = (float) (vertices[indices[i]]).getNormalY();
-			nValues[i * 3 + 2] = (float) (vertices[indices[i]]).getNormalZ();
+			pSunValues[i * 3] = (float) (sunVertices[sunIndices[i]]).getX();
+			pSunValues[i * 3 + 1] = (float) (sunVertices[sunIndices[i]]).getY();
+			pSunValues[i * 3 + 2] = (float) (sunVertices[sunIndices[i]]).getZ();
+			tSunValues[i * 2] = (float) (sunVertices[sunIndices[i]]).getS();
+			tSunValues[i * 2 + 1] = (float) (sunVertices[sunIndices[i]]).getT();
+			nSunValues[i * 3] = (float) (sunVertices[sunIndices[i]]).getNormalX();
+			nSunValues[i * 3 + 1] = (float) (sunVertices[sunIndices[i]]).getNormalY();
+			nSunValues[i * 3 + 2] = (float) (sunVertices[sunIndices[i]]).getNormalZ();
 		}
 		
-		float[] cubePositions =
+		// Bind vertex buffer with a vbo entry.
+		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[0]);
+		FloatBuffer sunVertBuf = Buffers.newDirectFloatBuffer(pSunValues);
+		gl.glBufferData(GL_ARRAY_BUFFER, sunVertBuf.limit() * 4, sunVertBuf, GL_STATIC_DRAW);
+		
+		// Bind texture buffer with a vbo entry.
+		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[1]);
+		FloatBuffer sunTexBuf = Buffers.newDirectFloatBuffer(tSunValues);
+		gl.glBufferData(GL_ARRAY_BUFFER, sunTexBuf.limit() * 4, sunTexBuf, GL_STATIC_DRAW);
+		
+		// Bind normal buffer with a vbo entry.
+		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[2]);
+		FloatBuffer sunNormalBuf = Buffers.newDirectFloatBuffer(nSunValues);
+		gl.glBufferData(GL_ARRAY_BUFFER, sunNormalBuf.limit() * 4, sunNormalBuf, GL_STATIC_DRAW);
+		
+		/* ***** *
+		 * Earth *
+		 * ***** */
+		
+		// Get earth vertices and indices.
+		Vertex3D[] earthVertices = m_sun.getVertices();
+		int[] earthIndices = m_sun.getIndices();
+		
+		// Create vertex, texture, and normal buffers.
+		float[] pEarthValues = new float[earthIndices.length * 3];
+		float[] tEarthValues = new float[earthIndices.length * 2];
+		float[] nEarthValues = new float[earthIndices.length * 3];
+		
+		// Populate the buffers with the proper values.
+		for(int i = 0; i < earthIndices.length; i++)
+		{
+			pEarthValues[i * 3] = (float) (earthVertices[earthIndices[i]]).getX();
+			pEarthValues[i * 3 + 1] = (float) (earthVertices[earthIndices[i]]).getY();
+			pEarthValues[i * 3 + 2] = (float) (earthVertices[earthIndices[i]]).getZ();
+			tEarthValues[i * 2] = (float) (earthVertices[earthIndices[i]]).getS();
+			tEarthValues[i * 2 + 1] = (float) (earthVertices[earthIndices[i]]).getT();
+			nEarthValues[i * 3] = (float) (earthVertices[earthIndices[i]]).getNormalX();
+			nEarthValues[i * 3 + 1] = (float) (earthVertices[earthIndices[i]]).getNormalY();
+			nEarthValues[i * 3 + 2] = (float) (earthVertices[earthIndices[i]]).getNormalZ();
+		}
+		
+		// Bind vertex buffer with a vbo entry.
+		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[3]);
+		FloatBuffer earthVertBuf = Buffers.newDirectFloatBuffer(pEarthValues);
+		gl.glBufferData(GL_ARRAY_BUFFER, earthVertBuf.limit() * 4, earthVertBuf, GL_STATIC_DRAW);
+		
+		// Bind texture buffer with a vbo entry.
+		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[4]);
+		FloatBuffer earthTexBuf = Buffers.newDirectFloatBuffer(tEarthValues);
+		gl.glBufferData(GL_ARRAY_BUFFER, earthTexBuf.limit() * 4, earthTexBuf, GL_STATIC_DRAW);
+		
+		// Bind normal buffer with a vbo entry.
+		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[5]);
+		FloatBuffer earthNormalBuf = Buffers.newDirectFloatBuffer(nEarthValues);
+		gl.glBufferData(GL_ARRAY_BUFFER, earthNormalBuf.limit() * 4, earthNormalBuf, GL_STATIC_DRAW);
+		
+		/*float[] cubePositions =
 				{-1.0f, 1.0f, -1.0f, -1.0f, -1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f, 1.0f, -1.0f, -1.0f, 1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 1.0f, -1.0f, 1.0f,
 						-1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1.0f, -1.0f, -1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, -1.0f,
 						-1.0f, 1.0f, -1.0f, -1.0f, -1.0f, -1.0f, 1.0f, 1.0f, -1.0f, -1.0f, -1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f, 1.0f, -1.0f, -1.0f, 1.0f, 1.0f, -1.0f, 1.0f, 1.0f, -1.0f, -1.0f,
@@ -224,25 +355,9 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 				1.0f, -1.0f, 1.0f, -1.0f, -1.0f, -1.0f, 1.0f, -1.0f, -1.0f  //RR
 		};
 		
-		gl.glGenVertexArrays(m_vao.length, m_vao, 0);
-		gl.glBindVertexArray(m_vao[0]);
-		gl.glGenBuffers(m_vbo.length, m_vbo, 0);
-		
-		/*gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[0]);
+		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[0]);
 		FloatBuffer cubeBuf = Buffers.newDirectFloatBuffer(cubePositions);
 		gl.glBufferData(GL_ARRAY_BUFFER, cubeBuf.limit() * 4, cubeBuf, GL_STATIC_DRAW);*/
-		
-		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[0]);
-		FloatBuffer sphereVertBuf = Buffers.newDirectFloatBuffer(pValues);
-		gl.glBufferData(GL_ARRAY_BUFFER, sphereVertBuf.limit() * 4, sphereVertBuf, GL_STATIC_DRAW);
-		
-		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[1]);
-		FloatBuffer sphereTexBuf = Buffers.newDirectFloatBuffer(tValues);
-		gl.glBufferData(GL_ARRAY_BUFFER, sphereTexBuf.limit() * 4, sphereTexBuf, GL_STATIC_DRAW);
-		
-		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[2]);
-		FloatBuffer sphereNormalBuf = Buffers.newDirectFloatBuffer(nValues);
-		gl.glBufferData(GL_ARRAY_BUFFER, sphereNormalBuf.limit() * 4, sphereNormalBuf, GL_STATIC_DRAW);
 	}
 	
 	private Matrix3D perspective(float fovy, float aspect, float n, float f)
