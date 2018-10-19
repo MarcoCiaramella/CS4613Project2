@@ -6,6 +6,7 @@ import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.GLContext;
 import com.jogamp.opengl.GLEventListener;
 import com.jogamp.opengl.awt.GLCanvas;
+import com.jogamp.opengl.util.FPSAnimator;
 import com.jogamp.opengl.util.texture.Texture;
 import com.jogamp.opengl.util.texture.TextureIO;
 import graphicslib3D.GLSLUtils;
@@ -34,6 +35,7 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 	 * Constants *
 	 * ********* */
 	private static final String EARTH_TEXTURE_FILE = "textures/earth.jpg";
+	private static final String SUN_TEXTURE_FILE = "textures/sun.jpg";
 	
 	/* **************** *
 	 * Member Variables *
@@ -46,9 +48,13 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 	private float m_cubeLocX, m_cubeLocY, m_cubeLocZ;
 	private float m_pyrLocX, m_pyrLocY, m_pyrLocZ;
 	private float m_sphLocX, m_sphLocY, m_sphLocZ;
+	private FPSAnimator m_animator;
+	private long m_startTime;
 	private Sphere m_sun;
 	private int earthTexture;
+	private int sunTexture;
 	private Texture joglEarthTexture;
+	private Texture joglSunTexture;
 	
 	public Project2()
 	{
@@ -56,15 +62,18 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		m_vao = new int[1];
 		m_vbo = new int[3];
 		m_sun = new Sphere(24);
+		m_startTime = System.currentTimeMillis();
 		
 		// Set up JFrame properties.
 		setTitle("Project 2 - 3D Modeling and Camera Manipulation");
-		setSize(600, 600);
+		setSize(980, 980);
 		m_myCanvas = new GLCanvas();
 		m_myCanvas.addGLEventListener(this);
 		m_myCanvas.addKeyListener(this);
 		getContentPane().add(m_myCanvas);
 		this.setVisible(true);
+		m_animator = new FPSAnimator(m_myCanvas, 30);
+		m_animator.start();
 	}
 	
 	public void display(GLAutoDrawable drawable)
@@ -86,6 +95,7 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		
 		Matrix3D mMat = new Matrix3D();
 		mMat.translate(m_sphLocX, m_sphLocY, m_sphLocZ);
+		mMat.rotate(0, ((double) (System.currentTimeMillis() - m_startTime) / 100) % 360, 0);
 		
 		Matrix3D mvMat = new Matrix3D();
 		mvMat.concatenate(vMat);
@@ -103,7 +113,7 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		gl.glEnableVertexAttribArray(1);
 		
 		gl.glActiveTexture(GL_TEXTURE0);
-		gl.glBindTexture(GL_TEXTURE_2D, earthTexture);
+		gl.glBindTexture(GL_TEXTURE_2D, sunTexture);
 		
 		gl.glEnable(GL_CULL_FACE);
 		gl.glFrontFace(GL_CCW);
@@ -159,7 +169,7 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		setupVertices();
 		m_cameraX = 0.0f;
 		m_cameraY = 0.0f;
-		m_cameraZ = 2.0f;
+		m_cameraZ = 10.0f;
 		m_cubeLocX = 0.0f;
 		m_cubeLocY = -2.0f;
 		m_cubeLocZ = 0.0f;
@@ -168,10 +178,13 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		m_pyrLocZ = 0.0f;
 		m_sphLocX = 0.0f;
 		m_sphLocY = 0.0f;
-		m_sphLocZ = -1.0f;
+		m_sphLocZ = 0.0f;
 		
 		joglEarthTexture = loadTexture(EARTH_TEXTURE_FILE);
 		earthTexture = joglEarthTexture.getTextureObject();
+		
+		joglSunTexture = loadTexture(SUN_TEXTURE_FILE);
+		sunTexture = joglSunTexture.getTextureObject();
 	}
 	
 	private void setupVertices()
