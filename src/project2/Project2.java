@@ -9,10 +9,7 @@ import com.jogamp.opengl.awt.GLCanvas;
 import com.jogamp.opengl.util.FPSAnimator;
 import com.jogamp.opengl.util.texture.Texture;
 import com.jogamp.opengl.util.texture.TextureIO;
-import graphicslib3D.GLSLUtils;
-import graphicslib3D.Matrix3D;
-import graphicslib3D.MatrixStack;
-import graphicslib3D.Vertex3D;
+import graphicslib3D.*;
 import graphicslib3D.shape.Sphere;
 
 import javax.swing.*;
@@ -76,7 +73,7 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		m_myCanvas.addKeyListener(this);
 		getContentPane().add(m_myCanvas);
 		this.setVisible(true);
-		m_animator = new FPSAnimator(m_myCanvas, 30);
+		m_animator = new FPSAnimator(m_myCanvas, 60);
 		m_animator.start();
 	}
 	
@@ -136,6 +133,14 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		// Set up texture.
 		gl.glActiveTexture(GL_TEXTURE0);
 		gl.glBindTexture(GL_TEXTURE_2D, m_sunTexture);
+		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+		gl.glGenerateMipmap(GL_TEXTURE_2D);
+		if(gl.isExtensionAvailable("GL_EXT_texture_filer_anisotropic"))
+		{
+			float max[] = new float[1];
+			gl.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, max, 0);
+			gl.glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, max[0]);
+		}
 		
 		// Enable depth test and face-culling.
 		gl.glEnable(GL_DEPTH_TEST);
@@ -174,6 +179,14 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		// Set up texture.
 		gl.glActiveTexture(GL_TEXTURE0);
 		gl.glBindTexture(GL_TEXTURE_2D, m_earthTexture);
+		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+		gl.glGenerateMipmap(GL_TEXTURE_2D);
+		if(gl.isExtensionAvailable("GL_EXT_texture_filer_anisotropic"))
+		{
+			float max[] = new float[1];
+			gl.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, max, 0);
+			gl.glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, max[0]);
+		}
 		
 		// Enable depth test and face-culling.
 		gl.glEnable(GL_DEPTH_TEST);
@@ -211,6 +224,14 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		// Set up texture.
 		gl.glActiveTexture(GL_TEXTURE0);
 		gl.glBindTexture(GL_TEXTURE_2D, m_earthMoonTexture);
+		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+		gl.glGenerateMipmap(GL_TEXTURE_2D);
+		if(gl.isExtensionAvailable("GL_EXT_texture_filer_anisotropic"))
+		{
+			float max[] = new float[1];
+			gl.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, max, 0);
+			gl.glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, max[0]);
+		}
 		
 		// Enable depth test and face-culling.
 		gl.glEnable(GL_DEPTH_TEST);
@@ -252,6 +273,14 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		// Set up texture.
 		gl.glActiveTexture(GL_TEXTURE0);
 		gl.glBindTexture(GL_TEXTURE_2D, m_marsTexture);
+		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+		gl.glGenerateMipmap(GL_TEXTURE_2D);
+		if(gl.isExtensionAvailable("GL_EXT_texture_filer_anisotropic"))
+		{
+			float max[] = new float[1];
+			gl.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, max, 0);
+			gl.glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, max[0]);
+		}
 		
 		// Enable depth test and face-culling.
 		gl.glEnable(GL_DEPTH_TEST);
@@ -289,6 +318,14 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		// Set up texture.
 		gl.glActiveTexture(GL_TEXTURE0);
 		gl.glBindTexture(GL_TEXTURE_2D, m_phobosTexture);
+		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+		gl.glGenerateMipmap(GL_TEXTURE_2D);
+		if(gl.isExtensionAvailable("GL_EXT_texture_filer_anisotropic"))
+		{
+			float max[] = new float[1];
+			gl.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, max, 0);
+			gl.glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, max[0]);
+		}
 		
 		// Enable depth test and face-culling.
 		gl.glEnable(GL_DEPTH_TEST);
@@ -471,6 +508,34 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		return tex;
 	}
 	
+	private Matrix3D lookAt(Point3D eye, Point3D target, Vector3D y)
+	{
+		Vector3D eyeV = new Vector3D(eye);
+		Vector3D targetV = new Vector3D(target);
+		Vector3D fwd = (targetV.minus(eyeV)).normalize();
+		Vector3D side = (fwd.cross(y)).normalize();
+		Vector3D up = (side.cross(fwd)).normalize();
+		
+		Matrix3D look = new Matrix3D();
+		look.setElementAt(0, 0, side.getX());
+		look.setElementAt(1, 0, up.getX());
+		look.setElementAt(2, 0, -fwd.getX());
+		look.setElementAt(3, 0, 0.0f);
+		look.setElementAt(0, 1, side.getY());
+		look.setElementAt(1, 1, up.getY());
+		look.setElementAt(2, 1, -fwd.getY());
+		look.setElementAt(3, 1, 0.0f);
+		look.setElementAt(0, 2, side.getZ());
+		look.setElementAt(1, 2, up.getZ());
+		look.setElementAt(2, 2, -fwd.getZ());
+		look.setElementAt(3, 2, 0.0f);
+		look.setElementAt(0, 3, side.dot(eyeV.mult(-1)));
+		look.setElementAt(1, 3, up.dot(eyeV.mult(-1)));
+		look.setElementAt(2, 3, (fwd.mult(-1)).dot(eyeV.mult(-1)));
+		look.setElementAt(3, 3, 1.0f);
+		return look;
+	}
+	
 	@Override
 	public void keyTyped(KeyEvent e)
 	{
@@ -484,6 +549,7 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		switch(keyCode)
 		{
 			case KeyEvent.VK_W:
+				Matrix3D newPos = lookAt(new Point3D(m_cameraX, m_cameraY, m_cameraZ), new Point3D(m_cameraX, m_cameraY, m_cameraZ), new Vector3D(0.0f, 0.0f, 0.0f));
 				System.out.println("w");
 				break;
 			case KeyEvent.VK_S:
