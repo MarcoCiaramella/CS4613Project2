@@ -37,6 +37,7 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 	 * ********* */
 	private static final String EARTH_TEXTURE_FILE = "textures/earth.jpg";
 	private static final String SUN_TEXTURE_FILE = "textures/sun.jpg";
+	private static final String EARTH_MOON_TEXTURE_FILE = "textures/moon.jpg";
 	
 	/* **************** *
 	 * Member Variables *
@@ -52,23 +53,25 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 	private float m_sunLocX, m_sunLocY, m_sunLocZ;
 	private float m_earthLocX, m_earthLocY, m_earthLocZ;
 	private FPSAnimator m_animator;
-	private long m_startTime;
 	private Sphere m_sun;
 	private Sphere m_earth;
+	private Sphere m_earthMoon;
 	private int earthTexture;
 	private int sunTexture;
+	private int earthMoonTexture;
 	private Texture joglEarthTexture;
 	private Texture joglSunTexture;
+	private Texture joglEarthMoonTexture;
 	
 	public Project2()
 	{
 		// Initialize default member variable values.
 		m_vao = new int[1];
-		m_vbo = new int[6];
+		m_vbo = new int[9];
 		m_mvStack = new MatrixStack(20);
 		m_sun = new Sphere(24);
 		m_earth = new Sphere(24);
-		m_startTime = System.currentTimeMillis();
+		m_earthMoon = new Sphere(24);
 		
 		// Set up JFrame properties.
 		setTitle("Project 2 - 3D Modeling and Camera Manipulation");
@@ -87,6 +90,11 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		GL4 gl = (GL4) GLContext.getCurrentGL();
 		
 		gl.glClear(GL_DEPTH_BUFFER_BIT);
+		float bkg[] = {0.0f, 0.0f, 0.0f, 1.0f};
+		FloatBuffer bkgBuffer = Buffers.newDirectFloatBuffer(bkg);
+		gl.glClearBufferfv(GL_COLOR, 0, bkgBuffer);
+		
+		gl.glClear(GL_DEPTH_BUFFER_BIT);
 		
 		gl.glUseProgram(m_renderingProgram);
 		
@@ -99,7 +107,7 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		// Set up view matrix.
 		m_mvStack.pushMatrix();
 		m_mvStack.translate(-m_cameraX, -m_cameraY, -m_cameraZ);
-		double amt = (double) (System.currentTimeMillis()) / 1000.0;
+		double amt = (System.currentTimeMillis()) / 1000.0;
 		
 		// Pass the projection matrix to a uniform in the shader.
 		gl.glUniformMatrix4fv(projLoc, 1, false, pMat.getFloatValues(), 0);
@@ -115,7 +123,7 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		m_mvStack.pushMatrix();
 		m_mvStack.translate(m_sunLocX, m_sunLocY, m_sunLocZ);
 		m_mvStack.pushMatrix();
-		m_mvStack.rotate(((double) (System.currentTimeMillis() - m_startTime) / 100) % 360, 0.0, 1.0, 0.0);
+		m_mvStack.rotate(((System.currentTimeMillis()) / 100.0) % 360, 0.0, 1.0, 0.0);
 		
 		// Pass the model-view matrix to a uniform in the shader.
 		gl.glUniformMatrix4fv(mvLoc, 1, false, m_mvStack.peek().getFloatValues(), 0);
@@ -130,9 +138,12 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		gl.glVertexAttribPointer(1, 2, GL_FLOAT, false, 0, 0);
 		gl.glEnableVertexAttribArray(1);
 		
+		// Set up texture.
 		gl.glActiveTexture(GL_TEXTURE0);
 		gl.glBindTexture(GL_TEXTURE_2D, sunTexture);
 		
+		// Enable depth test and face-culling.
+		gl.glEnable(GL_DEPTH_TEST);
 		gl.glEnable(GL_CULL_FACE);
 		gl.glFrontFace(GL_CCW);
 		
@@ -147,9 +158,11 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		
 		// Apply transformations to the model-view matrix.
 		m_mvStack.pushMatrix();
-		m_mvStack.translate(m_earthLocX, m_earthLocY, m_earthLocZ);
+		//m_mvStack.translate(m_earthLocX, m_earthLocY, m_earthLocZ);
+		m_mvStack.translate(Math.sin(amt) * 4.0f, 0.0f, Math.cos(amt) * 4.0f);
 		m_mvStack.pushMatrix();
-		m_mvStack.rotate(((double) (System.currentTimeMillis() - m_startTime) / 50) % 360, 0.0, 1.0, 0.0);
+		m_mvStack.rotate(((System.currentTimeMillis()) / 50.0) % 360, 0.0, 1.0, 0.0);
+		m_mvStack.scale(0.75, 0.75, 0.75);
 		
 		// Pass the model-view matrix to a uniform in the shader.
 		gl.glUniformMatrix4fv(mvLoc, 1, false, m_mvStack.peek().getFloatValues(), 0);
@@ -164,14 +177,54 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		gl.glVertexAttribPointer(1, 2, GL_FLOAT, false, 0, 0);
 		gl.glEnableVertexAttribArray(1);
 		
+		// Set up texture.
 		gl.glActiveTexture(GL_TEXTURE0);
 		gl.glBindTexture(GL_TEXTURE_2D, earthTexture);
 		
+		// Enable depth test and face-culling.
+		gl.glEnable(GL_DEPTH_TEST);
 		gl.glEnable(GL_CULL_FACE);
 		gl.glFrontFace(GL_CCW);
 		
 		// Draw the object.
 		numVerts = m_earth.getIndices().length;
+		gl.glDrawArrays(GL_TRIANGLES, 0, numVerts);
+		m_mvStack.popMatrix();
+		
+		/* ************ *
+		 * Earth's Moon *
+		 * ************ */
+		
+		// Apply transformations to the model-view matrix.
+		m_mvStack.pushMatrix();
+		m_mvStack.translate(0.0f, Math.sin(amt) * 2.0f, Math.cos(amt) * 2.0f);
+		m_mvStack.rotate(((System.currentTimeMillis()) / 10.0) % 360, 0.0, 0.0, 1.0);
+		m_mvStack.scale(0.25, 0.25, 0.25);
+		
+		// Pass the model-view matrix to a uniform in the shader.
+		gl.glUniformMatrix4fv(mvLoc, 1, false, m_mvStack.peek().getFloatValues(), 0);
+		
+		// Bind the vertex buffer to a vertex attribute.
+		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[6]);
+		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(0);
+		
+		// Bind the texture buffer to a vertex attribute.
+		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[7]);
+		gl.glVertexAttribPointer(1, 2, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(1);
+		
+		// Set up texture.
+		gl.glActiveTexture(GL_TEXTURE0);
+		gl.glBindTexture(GL_TEXTURE_2D, earthMoonTexture);
+		
+		// Enable depth test and face-culling.
+		gl.glEnable(GL_DEPTH_TEST);
+		gl.glEnable(GL_CULL_FACE);
+		gl.glFrontFace(GL_CCW);
+		
+		// Draw the object.
+		numVerts = m_earthMoon.getIndices().length;
 		gl.glDrawArrays(GL_TRIANGLES, 0, numVerts);
 		m_mvStack.popMatrix();
 		
@@ -215,7 +268,7 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		gl.glDrawArrays(GL_TRIANGLES, 0, numVerts);
 		
 		*//* ***** *
-		 * Earth *
+	 * Earth *
 	 * ***** *//*
 		
 		// Apply transformations to the model matrix.
@@ -301,7 +354,7 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		
 		// Camera Position
 		m_cameraX = 0.0f;
-		m_cameraY = 0.5f;
+		m_cameraY = 0.0f;
 		m_cameraZ = 12.0f;
 		
 		m_cubeLocX = 0.0f;
@@ -328,6 +381,10 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		// Earth Texture
 		joglEarthTexture = loadTexture(EARTH_TEXTURE_FILE);
 		earthTexture = joglEarthTexture.getTextureObject();
+		
+		// Earth's Moon Texture
+		joglEarthMoonTexture = loadTexture(EARTH_MOON_TEXTURE_FILE);
+		earthMoonTexture = joglEarthMoonTexture.getTextureObject();
 	}
 	
 	private void setupVertices()
@@ -420,6 +477,47 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[5]);
 		FloatBuffer earthNormalBuf = Buffers.newDirectFloatBuffer(nEarthValues);
 		gl.glBufferData(GL_ARRAY_BUFFER, earthNormalBuf.limit() * 4, earthNormalBuf, GL_STATIC_DRAW);
+		
+		/* ************ *
+		 * Earth's Moon *
+		 * ************ */
+		
+		// Get earth vertices and indices.
+		Vertex3D[] earthMoonVertices = m_sun.getVertices();
+		int[] earthMoonIndices = m_sun.getIndices();
+		
+		// Create vertex, texture, and normal buffers.
+		float[] pEarthMoonValues = new float[earthMoonIndices.length * 3];
+		float[] tEarthMoonValues = new float[earthMoonIndices.length * 2];
+		float[] nEarthMoonValues = new float[earthMoonIndices.length * 3];
+		
+		// Populate the buffers with the proper values.
+		for(int i = 0; i < earthMoonIndices.length; i++)
+		{
+			pEarthMoonValues[i * 3] = (float) (earthMoonVertices[earthMoonIndices[i]]).getX();
+			pEarthMoonValues[i * 3 + 1] = (float) (earthMoonVertices[earthMoonIndices[i]]).getY();
+			pEarthMoonValues[i * 3 + 2] = (float) (earthMoonVertices[earthMoonIndices[i]]).getZ();
+			tEarthMoonValues[i * 2] = (float) (earthMoonVertices[earthMoonIndices[i]]).getS();
+			tEarthMoonValues[i * 2 + 1] = (float) (earthMoonVertices[earthMoonIndices[i]]).getT();
+			nEarthMoonValues[i * 3] = (float) (earthMoonVertices[earthMoonIndices[i]]).getNormalX();
+			nEarthMoonValues[i * 3 + 1] = (float) (earthMoonVertices[earthMoonIndices[i]]).getNormalY();
+			nEarthMoonValues[i * 3 + 2] = (float) (earthMoonVertices[earthMoonIndices[i]]).getNormalZ();
+		}
+		
+		// Bind vertex buffer with a vbo entry.
+		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[6]);
+		FloatBuffer earthMoonVertBuf = Buffers.newDirectFloatBuffer(pEarthMoonValues);
+		gl.glBufferData(GL_ARRAY_BUFFER, earthMoonVertBuf.limit() * 4, earthMoonVertBuf, GL_STATIC_DRAW);
+		
+		// Bind texture buffer with a vbo entry.
+		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[7]);
+		FloatBuffer earthMoonTexBuf = Buffers.newDirectFloatBuffer(tEarthMoonValues);
+		gl.glBufferData(GL_ARRAY_BUFFER, earthMoonTexBuf.limit() * 4, earthMoonTexBuf, GL_STATIC_DRAW);
+		
+		// Bind normal buffer with a vbo entry.
+		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[8]);
+		FloatBuffer earthMoonNormalBuf = Buffers.newDirectFloatBuffer(nEarthMoonValues);
+		gl.glBufferData(GL_ARRAY_BUFFER, earthMoonNormalBuf.limit() * 4, earthMoonNormalBuf, GL_STATIC_DRAW);
 		
 		/*float[] cubePositions =
 				{-1.0f, 1.0f, -1.0f, -1.0f, -1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f, 1.0f, -1.0f, -1.0f, 1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 1.0f, -1.0f, 1.0f,
