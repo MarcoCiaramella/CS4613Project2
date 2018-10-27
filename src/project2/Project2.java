@@ -33,6 +33,8 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 	 * Constants *
 	 * ********* */
 	private static final int SPHERE_PRECISION = 24;
+	private static final float TRANSLATE_FACTOR = 0.5f;
+	private static final float PAN_FACTOR = 1.0f;
 	private static final String EARTH_TEXTURE_FILE = "textures/earth.jpg";
 	private static final String SUN_TEXTURE_FILE = "textures/sun.jpg";
 	private static final String EARTH_MOON_TEXTURE_FILE = "textures/moon.jpg";
@@ -48,10 +50,12 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 	private int[] m_vbo;
 	private MatrixStack m_mvStack;
 	private float m_cameraX, m_cameraY, m_cameraZ;
+	private float m_targetX, m_targetY, m_targetZ;
 	private float m_sunLocX, m_sunLocY, m_sunLocZ;
 	private FPSAnimator m_animator;
 	private Sphere m_sun, m_earth, m_earthMoon, m_mars, m_phobos;
 	private int m_sunTexture, m_earthTexture, m_earthMoonTexture, m_marsTexture, m_phobosTexture;
+	private Matrix3D m_viewMatrix;
 	
 	public Project2()
 	{
@@ -101,7 +105,8 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		
 		// Set up view matrix.
 		m_mvStack.pushMatrix();
-		m_mvStack.translate(-m_cameraX, -m_cameraY, -m_cameraZ);
+		m_mvStack.loadMatrix(m_viewMatrix);
+		
 		double amt = (System.currentTimeMillis()) / 1000.0;
 		
 		// Pass the projection matrix to a uniform in the shader.
@@ -353,6 +358,14 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		m_cameraY = 0.0f;
 		m_cameraZ = 15.0f;
 		
+		// Target Position
+		m_targetX = 0.0f;
+		m_targetY = 0.0f;
+		m_targetZ = 0.0f;
+		
+		// Initial View Matrix
+		m_viewMatrix = lookAt(new Point3D(m_cameraX, m_cameraY, m_cameraZ), new Point3D(), new Vector3D(0.0f, 1.0f, 0.0f));
+		
 		// Sun Position
 		m_sunLocX = 0.0f;
 		m_sunLocY = 0.0f;
@@ -549,26 +562,33 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		switch(keyCode)
 		{
 			case KeyEvent.VK_W:
-				Matrix3D newPos = lookAt(new Point3D(m_cameraX, m_cameraY, m_cameraZ), new Point3D(m_cameraX, m_cameraY, m_cameraZ), new Vector3D(0.0f, 0.0f, 0.0f));
-				System.out.println("w");
+				m_viewMatrix.translate(m_viewMatrix.elementAt(0, 2) * TRANSLATE_FACTOR, m_viewMatrix.elementAt(1, 2) * TRANSLATE_FACTOR, m_viewMatrix.elementAt(2, 2) * TRANSLATE_FACTOR);
+				m_cameraZ += TRANSLATE_FACTOR;
 				break;
 			case KeyEvent.VK_S:
-				System.out.println("s");
+				m_viewMatrix.translate(-m_viewMatrix.elementAt(0, 2) * TRANSLATE_FACTOR, -m_viewMatrix.elementAt(1, 2) * TRANSLATE_FACTOR, -m_viewMatrix.elementAt(2, 2) * TRANSLATE_FACTOR);
+				m_cameraZ -= TRANSLATE_FACTOR;
 				break;
 			case KeyEvent.VK_A:
-				System.out.println("a");
+				m_viewMatrix.translate(m_viewMatrix.elementAt(0, 0) * TRANSLATE_FACTOR, m_viewMatrix.elementAt(1, 0) * TRANSLATE_FACTOR, m_viewMatrix.elementAt(2, 0) * TRANSLATE_FACTOR);
+				m_cameraX += TRANSLATE_FACTOR;
 				break;
 			case KeyEvent.VK_D:
-				System.out.println("d");
+				m_viewMatrix.translate(-m_viewMatrix.elementAt(0, 0) * TRANSLATE_FACTOR, -m_viewMatrix.elementAt(1, 0) * TRANSLATE_FACTOR, -m_viewMatrix.elementAt(2, 0) * TRANSLATE_FACTOR);
+				m_cameraX -= TRANSLATE_FACTOR;
 				break;
 			case KeyEvent.VK_E:
-				System.out.println("e");
+				m_viewMatrix.translate(m_viewMatrix.elementAt(0, 1) * TRANSLATE_FACTOR, m_viewMatrix.elementAt(1, 1) * TRANSLATE_FACTOR, m_viewMatrix.elementAt(2, 1) * TRANSLATE_FACTOR);
+				m_cameraY += TRANSLATE_FACTOR;
 				break;
 			case KeyEvent.VK_Q:
-				System.out.println("q");
+				m_viewMatrix.translate(-m_viewMatrix.elementAt(0, 1) * TRANSLATE_FACTOR, -m_viewMatrix.elementAt(1, 1) * TRANSLATE_FACTOR, -m_viewMatrix.elementAt(2, 1) * TRANSLATE_FACTOR);
+				m_cameraY -= TRANSLATE_FACTOR;
 				break;
 			case KeyEvent.VK_LEFT:
-				System.out.println("left");
+				m_targetX -= PAN_FACTOR;
+				//m_viewMatrix.concatenate(lookAt(new Point3D(m_cameraX, m_cameraY, m_cameraZ), new Point3D(m_targetX, m_targetY, m_targetZ), new Vector3D(0.0f, 1.0f, 0.0f)));
+				m_viewMatrix = lookAt(new Point3D(m_cameraX, m_cameraY, m_cameraZ), new Point3D(), new Vector3D(0.0f, 1.0f, 0.0f));
 				break;
 			case KeyEvent.VK_RIGHT:
 				System.out.println("right");
