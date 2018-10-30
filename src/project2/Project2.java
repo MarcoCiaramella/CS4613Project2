@@ -34,12 +34,16 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 	 * ********* */
 	private static final int SPHERE_PRECISION = 24;
 	private static final float TRANSLATE_FACTOR = 0.5f;
-	private static final float PAN_FACTOR = 1.0f;
+	private static final float YAW_FACTOR = 0.1f;
+	private static final float PITCH_FACTOR = 0.1f;
 	private static final String EARTH_TEXTURE_FILE = "textures/earth.jpg";
 	private static final String SUN_TEXTURE_FILE = "textures/sun.jpg";
 	private static final String EARTH_MOON_TEXTURE_FILE = "textures/moon.jpg";
 	private static final String MARS_TEXTURE_FILE = "textures/mars.jpg";
 	private static final String PHOBOS_TEXTURE_FILE = "textures/phobos.jpg";
+	private static final String RED_TEXTURE_FILE = "textures/red.jpg";
+	private static final String GREEN_TEXTURE_FILE = "textures/green.jpg";
+	private static final String BLUE_TEXTURE_FILE = "textures/blue.jpg";
 	
 	/* **************** *
 	 * Member Variables *
@@ -49,29 +53,32 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 	private int[] m_vao;
 	private int[] m_vbo;
 	private MatrixStack m_mvStack;
-	private float m_cameraX, m_cameraY, m_cameraZ;
-	private float m_targetX, m_targetY, m_targetZ;
+	private float m_cameraX, m_cameraY, m_cameraZ, m_cameraPitch, m_cameraYaw;
+	private Vector3D m_forwardVector;
 	private float m_sunLocX, m_sunLocY, m_sunLocZ;
 	private FPSAnimator m_animator;
 	private Sphere m_sun, m_earth, m_earthMoon, m_mars, m_phobos;
-	private int m_sunTexture, m_earthTexture, m_earthMoonTexture, m_marsTexture, m_phobosTexture;
-	private Matrix3D m_viewMatrix;
+	private PentagonalPrism m_pentagonalPrism;
+	private int m_sunTexture, m_earthTexture, m_earthMoonTexture, m_marsTexture, m_phobosTexture, m_redTexture, m_greenTexture, m_blueTexture;
+	private boolean m_drawWorldAxes;
 	
 	public Project2()
 	{
 		// Initialize default member variable values.
 		m_vao = new int[1];
-		m_vbo = new int[15];
+		m_vbo = new int[18];
 		m_mvStack = new MatrixStack(20);
 		m_sun = new Sphere(SPHERE_PRECISION);
 		m_earth = new Sphere(SPHERE_PRECISION);
 		m_earthMoon = new Sphere(SPHERE_PRECISION);
 		m_mars = new Sphere(SPHERE_PRECISION);
 		m_phobos = new Sphere(SPHERE_PRECISION);
+		m_pentagonalPrism = new PentagonalPrism();
+		m_drawWorldAxes = true;
 		
 		// Set up JFrame properties.
 		setTitle("Project 2 - 3D Modeling and Camera Manipulation");
-		setSize(980, 980);
+		setSize(800, 800);
 		m_myCanvas = new GLCanvas();
 		m_myCanvas.addGLEventListener(this);
 		m_myCanvas.addKeyListener(this);
@@ -84,6 +91,10 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 	public void display(GLAutoDrawable drawable)
 	{
 		GL4 gl = (GL4) GLContext.getCurrentGL();
+		
+		updateForward();
+		
+		m_mvStack = new MatrixStack(20);
 		
 		// Clear the depth buffer so no trails are left behind.
 		gl.glClear(GL_DEPTH_BUFFER_BIT);
@@ -105,7 +116,11 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		
 		// Set up view matrix.
 		m_mvStack.pushMatrix();
-		m_mvStack.loadMatrix(m_viewMatrix);
+		m_mvStack.multMatrix(
+				lookAt(new Point3D(m_cameraX, m_cameraY, m_cameraZ), new Point3D(m_cameraX + m_forwardVector.getX(), m_cameraY + m_forwardVector.getY(), m_cameraZ + m_forwardVector.getZ()),
+						new Vector3D(0.0f, 1.0f, 0.0f)));
+		//m_mvStack.loadMatrix(m_viewMatrix);
+		//m_mvStack.translate(-m_cameraX, -m_cameraY, -m_cameraZ);
 		
 		double amt = (System.currentTimeMillis()) / 1000.0;
 		
@@ -257,7 +272,7 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		
 		// Apply transformations to the model-view matrix.
 		m_mvStack.pushMatrix();
-		m_mvStack.translate(Math.sin(amt * 1.5) * 6.0f, Math.sin(amt * 1.5) * 6.0f, Math.cos(amt * 1.5) * 6.0f);
+		m_mvStack.translate(Math.sin(amt * 1.5) * 7.0f, Math.sin(amt * 1.5) * 7.0f, Math.cos(amt * 1.5) * 7.0f);
 		m_mvStack.pushMatrix();
 		m_mvStack.rotate(((System.currentTimeMillis()) / 40.0) % 360, 0.0, 1.0, 0.0);
 		m_mvStack.scale(0.60, 0.60, 0.60);
@@ -344,27 +359,129 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		
 		m_mvStack.popMatrix();
 		m_mvStack.popMatrix();
+		
+		/* ********** *
+		 * World Axes *
+		 * ********** */
+		
+		if(m_drawWorldAxes)
+		{
+			// Pass the projection matrix to a uniform in the shader.
+			gl.glUniformMatrix4fv(projLoc, 1, false, pMat.getFloatValues(), 0);
+			
+			m_mvStack.pushMatrix();
+			
+			// Pass the model-view matrix to a uniform in the shader.
+			gl.glUniformMatrix4fv(mvLoc, 1, false, m_mvStack.peek().getFloatValues(), 0);
+			
+			/* ****** *
+			 * X Axis *
+			 * ****** */
+			
+			// Bind the vertex buffer to a vertex attribute.
+			gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[15]);
+			gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
+			gl.glEnableVertexAttribArray(0);
+			
+			// Texture
+			gl.glActiveTexture(GL_TEXTURE0);
+			gl.glBindTexture(GL_TEXTURE_2D, m_redTexture);
+			gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+			gl.glGenerateMipmap(GL_TEXTURE_2D);
+			if(gl.isExtensionAvailable("GL_EXT_texture_filer_anisotropic"))
+			{
+				float max[] = new float[1];
+				gl.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, max, 0);
+				gl.glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, max[0]);
+			}
+			
+			// Enable depth test and face-culling.
+			gl.glEnable(GL_DEPTH_TEST);
+			
+			gl.glDrawArrays(GL_LINES, 0, 2);
+			
+			/* ****** *
+			 * Y Axis *
+			 * ****** */
+			
+			// Bind the vertex buffer to a vertex attribute.
+			gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[16]);
+			gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
+			gl.glEnableVertexAttribArray(0);
+			
+			// Texture
+			gl.glActiveTexture(GL_TEXTURE0);
+			gl.glBindTexture(GL_TEXTURE_2D, m_greenTexture);
+			gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+			gl.glGenerateMipmap(GL_TEXTURE_2D);
+			if(gl.isExtensionAvailable("GL_EXT_texture_filer_anisotropic"))
+			{
+				float max[] = new float[1];
+				gl.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, max, 0);
+				gl.glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, max[0]);
+			}
+			
+			// Enable depth test and face-culling.
+			gl.glEnable(GL_DEPTH_TEST);
+			
+			gl.glDrawArrays(GL_LINES, 0, 2);
+			
+			
+			/* ****** *
+			 * Z Axis *
+			 * ****** */
+			
+			// Bind the vertex buffer to a vertex attribute.
+			gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[17]);
+			gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
+			gl.glEnableVertexAttribArray(0);
+			
+			// Texture
+			gl.glActiveTexture(GL_TEXTURE0);
+			gl.glBindTexture(GL_TEXTURE_2D, m_blueTexture);
+			gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+			gl.glGenerateMipmap(GL_TEXTURE_2D);
+			if(gl.isExtensionAvailable("GL_EXT_texture_filer_anisotropic"))
+			{
+				float max[] = new float[1];
+				gl.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, max, 0);
+				gl.glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, max[0]);
+			}
+			
+			// Enable depth test and face-culling.
+			gl.glEnable(GL_DEPTH_TEST);
+			
+			gl.glDrawArrays(GL_LINES, 0, 2);
+			
+			m_mvStack.popMatrix();
+		}
+		
 		m_mvStack.popMatrix();
+	}
+	
+	private void updateForward()
+	{
+		m_forwardVector.setX(Math.cos(m_cameraPitch) * Math.sin(m_cameraYaw));
+		m_forwardVector.setY(Math.sin(m_cameraPitch));
+		m_forwardVector.setZ(Math.cos(m_cameraPitch) * -Math.cos(m_cameraYaw));
+		m_forwardVector.normalize();
 	}
 	
 	public void init(GLAutoDrawable drawable)
 	{
 		GL4 gl = (GL4) GLContext.getCurrentGL();
-		m_renderingProgram = createShaderProgram();
+		m_renderingProgram = createShaderProgram("shaders/vert.shader", "shaders/frag.shader");
 		setupVertices();
 		
 		// Camera Position
 		m_cameraX = 0.0f;
 		m_cameraY = 0.0f;
 		m_cameraZ = 15.0f;
+		m_cameraPitch = 0.0f;
+		m_cameraYaw = 0.0f;
 		
-		// Target Position
-		m_targetX = 0.0f;
-		m_targetY = 0.0f;
-		m_targetZ = 0.0f;
-		
-		// Initial View Matrix
-		m_viewMatrix = lookAt(new Point3D(m_cameraX, m_cameraY, m_cameraZ), new Point3D(), new Vector3D(0.0f, 1.0f, 0.0f));
+		// Forward vector is looking down negative z-axis.
+		m_forwardVector = new Vector3D(0.0f, 0.0f, -1.0f);
 		
 		// Sun Position
 		m_sunLocX = 0.0f;
@@ -377,6 +494,9 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		m_earthMoonTexture = loadTexture(EARTH_MOON_TEXTURE_FILE).getTextureObject();
 		m_marsTexture = loadTexture(MARS_TEXTURE_FILE).getTextureObject();
 		m_phobosTexture = loadTexture(PHOBOS_TEXTURE_FILE).getTextureObject();
+		m_redTexture = loadTexture(RED_TEXTURE_FILE).getTextureObject();
+		m_greenTexture = loadTexture(GREEN_TEXTURE_FILE).getTextureObject();
+		m_blueTexture = loadTexture(BLUE_TEXTURE_FILE).getTextureObject();
 	}
 	
 	private void setupVertices()
@@ -388,29 +508,32 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		gl.glBindVertexArray(m_vao[0]);
 		gl.glGenBuffers(m_vbo.length, m_vbo, 0);
 		
+		// Planets and Moons
 		setupSphereVertices(m_sun, 0);
 		setupSphereVertices(m_earth, 3);
 		setupSphereVertices(m_earthMoon, 6);
 		setupSphereVertices(m_mars, 9);
 		setupSphereVertices(m_phobos, 12);
 		
-		/*float[] cubePositions =
-				{-1.0f, 1.0f, -1.0f, -1.0f, -1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f, 1.0f, -1.0f, -1.0f, 1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 1.0f, -1.0f, 1.0f,
-						-1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1.0f, -1.0f, -1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, -1.0f,
-						-1.0f, 1.0f, -1.0f, -1.0f, -1.0f, -1.0f, 1.0f, 1.0f, -1.0f, -1.0f, -1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f, 1.0f, -1.0f, -1.0f, 1.0f, 1.0f, -1.0f, 1.0f, 1.0f, -1.0f, -1.0f,
-						1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, -1.0f, 1.0f, 1.0f, -1.0f, 1.0f, -1.0f};
+		// World Axes
+		float[] xAxisVertices = {0.0f, 0.0f, 0.0f, 5.0f, 0.0f, 0.0f};
+		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[15]);
+		FloatBuffer xAxisVertBuf = Buffers.newDirectFloatBuffer(xAxisVertices);
+		gl.glBufferData(GL_ARRAY_BUFFER, xAxisVertBuf.limit() * 4, xAxisVertBuf, GL_STATIC_DRAW);
 		
-		float[] pyramidPositions = {-1.0f, -1.0f, 1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 0.0f,    //front
-				1.0f, -1.0f, 1.0f, 1.0f, -1.0f, -1.0f, 0.0f, 1.0f, 0.0f,    //right
-				1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, 0.0f, 1.0f, 0.0f,  //back
-				-1.0f, -1.0f, -1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 0.0f,  //left
-				-1.0f, -1.0f, -1.0f, 1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f, //LF
-				1.0f, -1.0f, 1.0f, -1.0f, -1.0f, -1.0f, 1.0f, -1.0f, -1.0f  //RR
-		};
+		float[] yAxisVertices = {0.0f, 0.0f, 0.0f, 0.0f, 5.0f, 0.0f};
+		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[16]);
+		FloatBuffer yAxisVertBuf = Buffers.newDirectFloatBuffer(yAxisVertices);
+		gl.glBufferData(GL_ARRAY_BUFFER, yAxisVertBuf.limit() * 4, yAxisVertBuf, GL_STATIC_DRAW);
 		
-		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[0]);
-		FloatBuffer cubeBuf = Buffers.newDirectFloatBuffer(cubePositions);
-		gl.glBufferData(GL_ARRAY_BUFFER, cubeBuf.limit() * 4, cubeBuf, GL_STATIC_DRAW);*/
+		float[] zAxisVertices = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 5.0f};
+		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[17]);
+		FloatBuffer zAxisVertBuf = Buffers.newDirectFloatBuffer(zAxisVertices);
+		gl.glBufferData(GL_ARRAY_BUFFER, zAxisVertBuf.limit() * 4, zAxisVertBuf, GL_STATIC_DRAW);
+		
+		// Pentagonal Prism
+		Vertex3D[] vertices = m_pentagonalPrism.getVertices();
+		
 	}
 	
 	private void setupSphereVertices(Sphere sphere, int startingVBOIndex)
@@ -484,12 +607,12 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 	{
 	}
 	
-	private int createShaderProgram()
+	private int createShaderProgram(String vertLoc, String fragLoc)
 	{
 		GL4 gl = (GL4) GLContext.getCurrentGL();
 		
-		String vshaderSource[] = GLSLUtils.readShaderSource("shaders/vert.shader");
-		String fshaderSource[] = GLSLUtils.readShaderSource("shaders/frag.shader");
+		String vshaderSource[] = GLSLUtils.readShaderSource(vertLoc);
+		String fshaderSource[] = GLSLUtils.readShaderSource(fragLoc);
 		
 		int vShader = gl.glCreateShader(GL_VERTEX_SHADER);
 		int fShader = gl.glCreateShader(GL_FRAGMENT_SHADER);
@@ -562,45 +685,64 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		switch(keyCode)
 		{
 			case KeyEvent.VK_W:
-				m_viewMatrix.translate(m_viewMatrix.elementAt(0, 2) * TRANSLATE_FACTOR, m_viewMatrix.elementAt(1, 2) * TRANSLATE_FACTOR, m_viewMatrix.elementAt(2, 2) * TRANSLATE_FACTOR);
-				m_cameraZ += TRANSLATE_FACTOR;
+				//m_viewMatrix.translate(m_viewMatrix.elementAt(0, 2) * TRANSLATE_FACTOR, m_viewMatrix.elementAt(1, 2) * TRANSLATE_FACTOR, m_viewMatrix.elementAt(2, 2) * TRANSLATE_FACTOR);
+				m_cameraX += m_forwardVector.getX() * TRANSLATE_FACTOR;
+				m_cameraY += m_forwardVector.getY() * TRANSLATE_FACTOR;
+				m_cameraZ += m_forwardVector.getZ() * TRANSLATE_FACTOR;
 				break;
 			case KeyEvent.VK_S:
-				m_viewMatrix.translate(-m_viewMatrix.elementAt(0, 2) * TRANSLATE_FACTOR, -m_viewMatrix.elementAt(1, 2) * TRANSLATE_FACTOR, -m_viewMatrix.elementAt(2, 2) * TRANSLATE_FACTOR);
-				m_cameraZ -= TRANSLATE_FACTOR;
+				//m_viewMatrix.translate(-m_viewMatrix.elementAt(0, 2) * TRANSLATE_FACTOR, -m_viewMatrix.elementAt(1, 2) * TRANSLATE_FACTOR, -m_viewMatrix.elementAt(2, 2) * TRANSLATE_FACTOR);
+				m_cameraX -= m_forwardVector.getX() * TRANSLATE_FACTOR;
+				m_cameraY -= m_forwardVector.getY() * TRANSLATE_FACTOR;
+				m_cameraZ -= m_forwardVector.getZ() * TRANSLATE_FACTOR;
 				break;
 			case KeyEvent.VK_A:
-				m_viewMatrix.translate(m_viewMatrix.elementAt(0, 0) * TRANSLATE_FACTOR, m_viewMatrix.elementAt(1, 0) * TRANSLATE_FACTOR, m_viewMatrix.elementAt(2, 0) * TRANSLATE_FACTOR);
-				m_cameraX += TRANSLATE_FACTOR;
+				//m_viewMatrix.translate(m_viewMatrix.elementAt(0, 0) * TRANSLATE_FACTOR, m_viewMatrix.elementAt(1, 0) * TRANSLATE_FACTOR, m_viewMatrix.elementAt(2, 0) * TRANSLATE_FACTOR);
+				Vector3D sideVector = m_forwardVector.cross(new Vector3D(0.0f, 1.0f, 0.0f));
+				m_cameraX -= sideVector.getX() * TRANSLATE_FACTOR;
+				m_cameraY -= sideVector.getY() * TRANSLATE_FACTOR;
+				m_cameraZ -= sideVector.getZ() * TRANSLATE_FACTOR;
 				break;
 			case KeyEvent.VK_D:
-				m_viewMatrix.translate(-m_viewMatrix.elementAt(0, 0) * TRANSLATE_FACTOR, -m_viewMatrix.elementAt(1, 0) * TRANSLATE_FACTOR, -m_viewMatrix.elementAt(2, 0) * TRANSLATE_FACTOR);
-				m_cameraX -= TRANSLATE_FACTOR;
+				//m_viewMatrix.translate(-m_viewMatrix.elementAt(0, 0) * TRANSLATE_FACTOR, -m_viewMatrix.elementAt(1, 0) * TRANSLATE_FACTOR, -m_viewMatrix.elementAt(2, 0) * TRANSLATE_FACTOR);
+				sideVector = m_forwardVector.cross(new Vector3D(0.0f, 1.0f, 0.0f));
+				m_cameraX += sideVector.getX() * TRANSLATE_FACTOR;
+				m_cameraY += sideVector.getY() * TRANSLATE_FACTOR;
+				m_cameraZ += sideVector.getZ() * TRANSLATE_FACTOR;
 				break;
 			case KeyEvent.VK_E:
-				m_viewMatrix.translate(m_viewMatrix.elementAt(0, 1) * TRANSLATE_FACTOR, m_viewMatrix.elementAt(1, 1) * TRANSLATE_FACTOR, m_viewMatrix.elementAt(2, 1) * TRANSLATE_FACTOR);
-				m_cameraY += TRANSLATE_FACTOR;
+				//m_viewMatrix.translate(m_viewMatrix.elementAt(0, 1) * TRANSLATE_FACTOR, m_viewMatrix.elementAt(1, 1) * TRANSLATE_FACTOR, m_viewMatrix.elementAt(2, 1) * TRANSLATE_FACTOR);
+				sideVector = m_forwardVector.cross(new Vector3D(0.0f, 1.0f, 0.0f));
+				Vector3D topVector = m_forwardVector.cross(sideVector);
+				m_cameraX += topVector.getX() * TRANSLATE_FACTOR;
+				m_cameraY += topVector.getY() * TRANSLATE_FACTOR;
+				m_cameraZ += topVector.getZ() * TRANSLATE_FACTOR;
 				break;
 			case KeyEvent.VK_Q:
-				m_viewMatrix.translate(-m_viewMatrix.elementAt(0, 1) * TRANSLATE_FACTOR, -m_viewMatrix.elementAt(1, 1) * TRANSLATE_FACTOR, -m_viewMatrix.elementAt(2, 1) * TRANSLATE_FACTOR);
-				m_cameraY -= TRANSLATE_FACTOR;
+				//m_viewMatrix.translate(-m_viewMatrix.elementAt(0, 1) * TRANSLATE_FACTOR, -m_viewMatrix.elementAt(1, 1) * TRANSLATE_FACTOR, -m_viewMatrix.elementAt(2, 1) * TRANSLATE_FACTOR);
+				sideVector = m_forwardVector.cross(new Vector3D(0.0f, 1.0f, 0.0f));
+				topVector = m_forwardVector.cross(sideVector);
+				m_cameraX -= topVector.getX() * TRANSLATE_FACTOR;
+				m_cameraY -= topVector.getY() * TRANSLATE_FACTOR;
+				m_cameraZ -= topVector.getZ() * TRANSLATE_FACTOR;
 				break;
 			case KeyEvent.VK_LEFT:
-				m_targetX -= PAN_FACTOR;
+				//m_targetX -= PAN_FACTOR;
+				m_cameraYaw -= YAW_FACTOR;
 				//m_viewMatrix.concatenate(lookAt(new Point3D(m_cameraX, m_cameraY, m_cameraZ), new Point3D(m_targetX, m_targetY, m_targetZ), new Vector3D(0.0f, 1.0f, 0.0f)));
-				m_viewMatrix = lookAt(new Point3D(m_cameraX, m_cameraY, m_cameraZ), new Point3D(), new Vector3D(0.0f, 1.0f, 0.0f));
+				//m_viewMatrix = lookAt(new Point3D(m_cameraX, m_cameraY, m_cameraZ), new Point3D(), new Vector3D(0.0f, 1.0f, 0.0f));
 				break;
 			case KeyEvent.VK_RIGHT:
-				System.out.println("right");
+				m_cameraYaw += YAW_FACTOR;
 				break;
 			case KeyEvent.VK_UP:
-				System.out.println("up");
+				m_cameraPitch += PITCH_FACTOR;
 				break;
 			case KeyEvent.VK_DOWN:
-				System.out.println("down");
+				m_cameraPitch -= PITCH_FACTOR;
 				break;
 			case KeyEvent.VK_SPACE:
-				System.out.println("space");
+				m_drawWorldAxes = !m_drawWorldAxes;
 				break;
 		}
 	}
