@@ -366,9 +366,6 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		
 		if(m_drawWorldAxes)
 		{
-			// Pass the projection matrix to a uniform in the shader.
-			gl.glUniformMatrix4fv(projLoc, 1, false, pMat.getFloatValues(), 0);
-			
 			m_mvStack.pushMatrix();
 			
 			// Pass the model-view matrix to a uniform in the shader.
@@ -395,7 +392,7 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 				gl.glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, max[0]);
 			}
 			
-			// Enable depth test and face-culling.
+			// Enable depth test.
 			gl.glEnable(GL_DEPTH_TEST);
 			
 			gl.glDrawArrays(GL_LINES, 0, 2);
@@ -421,11 +418,10 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 				gl.glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, max[0]);
 			}
 			
-			// Enable depth test and face-culling.
+			// Enable depth test.
 			gl.glEnable(GL_DEPTH_TEST);
 			
 			gl.glDrawArrays(GL_LINES, 0, 2);
-			
 			
 			/* ****** *
 			 * Z Axis *
@@ -448,7 +444,7 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 				gl.glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, max[0]);
 			}
 			
-			// Enable depth test and face-culling.
+			// Enable depth test.
 			gl.glEnable(GL_DEPTH_TEST);
 			
 			gl.glDrawArrays(GL_LINES, 0, 2);
@@ -533,7 +529,6 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		
 		// Pentagonal Prism
 		Vertex3D[] vertices = m_pentagonalPrism.getVertices();
-		
 	}
 	
 	private void setupSphereVertices(Sphere sphere, int startingVBOIndex)
@@ -685,33 +680,28 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		switch(keyCode)
 		{
 			case KeyEvent.VK_W:
-				//m_viewMatrix.translate(m_viewMatrix.elementAt(0, 2) * TRANSLATE_FACTOR, m_viewMatrix.elementAt(1, 2) * TRANSLATE_FACTOR, m_viewMatrix.elementAt(2, 2) * TRANSLATE_FACTOR);
 				m_cameraX += m_forwardVector.getX() * TRANSLATE_FACTOR;
 				m_cameraY += m_forwardVector.getY() * TRANSLATE_FACTOR;
 				m_cameraZ += m_forwardVector.getZ() * TRANSLATE_FACTOR;
 				break;
 			case KeyEvent.VK_S:
-				//m_viewMatrix.translate(-m_viewMatrix.elementAt(0, 2) * TRANSLATE_FACTOR, -m_viewMatrix.elementAt(1, 2) * TRANSLATE_FACTOR, -m_viewMatrix.elementAt(2, 2) * TRANSLATE_FACTOR);
 				m_cameraX -= m_forwardVector.getX() * TRANSLATE_FACTOR;
 				m_cameraY -= m_forwardVector.getY() * TRANSLATE_FACTOR;
 				m_cameraZ -= m_forwardVector.getZ() * TRANSLATE_FACTOR;
 				break;
 			case KeyEvent.VK_A:
-				//m_viewMatrix.translate(m_viewMatrix.elementAt(0, 0) * TRANSLATE_FACTOR, m_viewMatrix.elementAt(1, 0) * TRANSLATE_FACTOR, m_viewMatrix.elementAt(2, 0) * TRANSLATE_FACTOR);
 				Vector3D sideVector = m_forwardVector.cross(new Vector3D(0.0f, 1.0f, 0.0f));
 				m_cameraX -= sideVector.getX() * TRANSLATE_FACTOR;
 				m_cameraY -= sideVector.getY() * TRANSLATE_FACTOR;
 				m_cameraZ -= sideVector.getZ() * TRANSLATE_FACTOR;
 				break;
 			case KeyEvent.VK_D:
-				//m_viewMatrix.translate(-m_viewMatrix.elementAt(0, 0) * TRANSLATE_FACTOR, -m_viewMatrix.elementAt(1, 0) * TRANSLATE_FACTOR, -m_viewMatrix.elementAt(2, 0) * TRANSLATE_FACTOR);
 				sideVector = m_forwardVector.cross(new Vector3D(0.0f, 1.0f, 0.0f));
 				m_cameraX += sideVector.getX() * TRANSLATE_FACTOR;
 				m_cameraY += sideVector.getY() * TRANSLATE_FACTOR;
 				m_cameraZ += sideVector.getZ() * TRANSLATE_FACTOR;
 				break;
 			case KeyEvent.VK_E:
-				//m_viewMatrix.translate(m_viewMatrix.elementAt(0, 1) * TRANSLATE_FACTOR, m_viewMatrix.elementAt(1, 1) * TRANSLATE_FACTOR, m_viewMatrix.elementAt(2, 1) * TRANSLATE_FACTOR);
 				sideVector = m_forwardVector.cross(new Vector3D(0.0f, 1.0f, 0.0f));
 				Vector3D topVector = m_forwardVector.cross(sideVector);
 				m_cameraX += topVector.getX() * TRANSLATE_FACTOR;
@@ -719,7 +709,6 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 				m_cameraZ += topVector.getZ() * TRANSLATE_FACTOR;
 				break;
 			case KeyEvent.VK_Q:
-				//m_viewMatrix.translate(-m_viewMatrix.elementAt(0, 1) * TRANSLATE_FACTOR, -m_viewMatrix.elementAt(1, 1) * TRANSLATE_FACTOR, -m_viewMatrix.elementAt(2, 1) * TRANSLATE_FACTOR);
 				sideVector = m_forwardVector.cross(new Vector3D(0.0f, 1.0f, 0.0f));
 				topVector = m_forwardVector.cross(sideVector);
 				m_cameraX -= topVector.getX() * TRANSLATE_FACTOR;
@@ -727,10 +716,7 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 				m_cameraZ -= topVector.getZ() * TRANSLATE_FACTOR;
 				break;
 			case KeyEvent.VK_LEFT:
-				//m_targetX -= PAN_FACTOR;
 				m_cameraYaw -= YAW_FACTOR;
-				//m_viewMatrix.concatenate(lookAt(new Point3D(m_cameraX, m_cameraY, m_cameraZ), new Point3D(m_targetX, m_targetY, m_targetZ), new Vector3D(0.0f, 1.0f, 0.0f)));
-				//m_viewMatrix = lookAt(new Point3D(m_cameraX, m_cameraY, m_cameraZ), new Point3D(), new Vector3D(0.0f, 1.0f, 0.0f));
 				break;
 			case KeyEvent.VK_RIGHT:
 				m_cameraYaw += YAW_FACTOR;
