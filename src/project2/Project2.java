@@ -41,6 +41,7 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 	private static final String EARTH_MOON_TEXTURE_FILE = "textures/moon.jpg";
 	private static final String MARS_TEXTURE_FILE = "textures/mars.jpg";
 	private static final String PHOBOS_TEXTURE_FILE = "textures/phobos.jpg";
+	private static final String ME_TEXTURE_FILE = "textures/me.jpg";
 	private static final String RED_TEXTURE_FILE = "textures/red.jpg";
 	private static final String GREEN_TEXTURE_FILE = "textures/green.jpg";
 	private static final String BLUE_TEXTURE_FILE = "textures/blue.jpg";
@@ -59,26 +60,27 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 	private FPSAnimator m_animator;
 	private Sphere m_sun, m_earth, m_earthMoon, m_mars, m_phobos;
 	private PentagonalPrism m_pentagonalPrism;
-	private int m_sunTexture, m_earthTexture, m_earthMoonTexture, m_marsTexture, m_phobosTexture, m_redTexture, m_greenTexture, m_blueTexture;
+	private int m_sunTexture, m_earthTexture, m_earthMoonTexture, m_marsTexture, m_phobosTexture, m_meTexture, m_redTexture, m_greenTexture, m_blueTexture;
 	private boolean m_drawWorldAxes;
 	
 	public Project2()
 	{
 		// Initialize default member variable values.
 		m_vao = new int[1];
-		m_vbo = new int[18];
+		m_vbo = new int[21];
 		m_mvStack = new MatrixStack(20);
 		m_sun = new Sphere(SPHERE_PRECISION);
 		m_earth = new Sphere(SPHERE_PRECISION);
 		m_earthMoon = new Sphere(SPHERE_PRECISION);
 		m_mars = new Sphere(SPHERE_PRECISION);
 		m_phobos = new Sphere(SPHERE_PRECISION);
-		m_pentagonalPrism = new PentagonalPrism();
+		m_pentagonalPrism = new PentagonalPrism(1);
 		m_drawWorldAxes = true;
 		
 		// Set up JFrame properties.
 		setTitle("Project 2 - 3D Modeling and Camera Manipulation");
 		setSize(800, 800);
+		setDefaultCloseOperation(EXIT_ON_CLOSE);
 		m_myCanvas = new GLCanvas();
 		m_myCanvas.addGLEventListener(this);
 		m_myCanvas.addKeyListener(this);
@@ -358,6 +360,55 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		m_mvStack.popMatrix();
 		
 		m_mvStack.popMatrix();
+		
+		
+		/* **************** *
+		 * Pentagonal Prism *
+		 * **************** */
+		
+		// Apply transformations to the model-view matrix.
+		m_mvStack.pushMatrix();
+		m_mvStack.translate(0.0f, Math.sin(amt * 2.0) * 8.0f, Math.cos(amt * 2.0) * 8.0f);
+		m_mvStack.pushMatrix();
+		m_mvStack.rotate(((System.currentTimeMillis()) / 40.0) % 360, 0.0, 1.0, 0.0);
+		m_mvStack.scale(0.50, 0.50, 0.50);
+		
+		// Pass the model-view matrix to a uniform in the shader.
+		gl.glUniformMatrix4fv(mvLoc, 1, false, m_mvStack.peek().getFloatValues(), 0);
+		
+		// Bind the vertex buffer to a vertex attribute.
+		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[18]);
+		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(0);
+		
+		// Bind the texture buffer to a vertex attribute.
+		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[19]);
+		gl.glVertexAttribPointer(1, 2, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(1);
+		
+		// Set up texture.
+		gl.glActiveTexture(GL_TEXTURE0);
+		gl.glBindTexture(GL_TEXTURE_2D, m_meTexture);
+		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+		gl.glGenerateMipmap(GL_TEXTURE_2D);
+		if(gl.isExtensionAvailable("GL_EXT_texture_filer_anisotropic"))
+		{
+			float max[] = new float[1];
+			gl.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, max, 0);
+			gl.glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, max[0]);
+		}
+		
+		// Enable depth test and face-culling.
+		gl.glEnable(GL_DEPTH_TEST);
+		gl.glEnable(GL_CULL_FACE);
+		gl.glFrontFace(GL_CW);
+		
+		// Draw the object.
+		numVerts = m_pentagonalPrism.getIndices().length;
+		gl.glDrawArrays(GL_TRIANGLES, 0, numVerts);
+		m_mvStack.popMatrix();
+		m_mvStack.popMatrix();
+		
 		m_mvStack.popMatrix();
 		
 		/* ********** *
@@ -490,6 +541,7 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		m_earthMoonTexture = loadTexture(EARTH_MOON_TEXTURE_FILE).getTextureObject();
 		m_marsTexture = loadTexture(MARS_TEXTURE_FILE).getTextureObject();
 		m_phobosTexture = loadTexture(PHOBOS_TEXTURE_FILE).getTextureObject();
+		m_meTexture = loadTexture(ME_TEXTURE_FILE).getTextureObject();
 		m_redTexture = loadTexture(RED_TEXTURE_FILE).getTextureObject();
 		m_greenTexture = loadTexture(GREEN_TEXTURE_FILE).getTextureObject();
 		m_blueTexture = loadTexture(BLUE_TEXTURE_FILE).getTextureObject();
@@ -528,7 +580,49 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 		gl.glBufferData(GL_ARRAY_BUFFER, zAxisVertBuf.limit() * 4, zAxisVertBuf, GL_STATIC_DRAW);
 		
 		// Pentagonal Prism
-		Vertex3D[] vertices = m_pentagonalPrism.getVertices();
+		setupPentagonalPrismVertices(m_pentagonalPrism, 18);
+	}
+	
+	private void setupPentagonalPrismVertices(PentagonalPrism prism, int startingVBOIndex)
+	{
+		GL4 gl = (GL4) GLContext.getCurrentGL();
+		
+		// Get vertices and indices.
+		Vertex3D[] vertices = prism.getVertices();
+		int[] indices = prism.getIndices();
+		
+		// Create vertex, texture, and normal buffers.
+		float[] pValues = new float[indices.length * 3];
+		float[] tValues = new float[indices.length * 2];
+		//float[] nValues = new float[indices.length * 3];
+		
+		// Populate the buffers with the proper values.
+		for(int i = 0; i < indices.length; i++)
+		{
+			pValues[i * 3] = (float) (vertices[indices[i]]).getX();
+			pValues[i * 3 + 1] = (float) (vertices[indices[i]]).getY();
+			pValues[i * 3 + 2] = (float) (vertices[indices[i]]).getZ();
+			tValues[i * 2] = (float) (vertices[indices[i]]).getS();
+			tValues[i * 2 + 1] = (float) (vertices[indices[i]]).getT();
+			//nValues[i * 3] = (float) (vertices[indices[i]]).getNormalX();
+			//nValues[i * 3 + 1] = (float) (vertices[indices[i]]).getNormalY();
+			//nValues[i * 3 + 2] = (float) (vertices[indices[i]]).getNormalZ();
+		}
+		
+		// Bind vertex buffer with a vbo entry.
+		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[startingVBOIndex]);
+		FloatBuffer vertBuf = Buffers.newDirectFloatBuffer(pValues);
+		gl.glBufferData(GL_ARRAY_BUFFER, vertBuf.limit() * 4, vertBuf, GL_STATIC_DRAW);
+		
+		// Bind texture buffer with a vbo entry.
+		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[startingVBOIndex + 1]);
+		FloatBuffer texBuf = Buffers.newDirectFloatBuffer(tValues);
+		gl.glBufferData(GL_ARRAY_BUFFER, texBuf.limit() * 4, texBuf, GL_STATIC_DRAW);
+		
+		// Bind normal buffer with a vbo entry.
+		//gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[startingVBOIndex + 2]);
+		//FloatBuffer normalBuf = Buffers.newDirectFloatBuffer(nValues);
+		//gl.glBufferData(GL_ARRAY_BUFFER, normalBuf.limit() * 4, normalBuf, GL_STATIC_DRAW);
 	}
 	
 	private void setupSphereVertices(Sphere sphere, int startingVBOIndex)
